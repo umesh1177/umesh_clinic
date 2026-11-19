@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { familyAPI } from '../services/api';
 import { MasterDataInput } from '../components/common/MasterDataInput';
 import { useDebounce } from '../hooks/useDebounce';
+import { useIsMobile } from '../hooks/useIsMobile';
 import {
   ListChecks,
   Network,
@@ -57,6 +58,9 @@ export const FamilyHeadRegistration = ({ onNavigateToAddMember, onNavigateToPati
       [famId]: !prev[famId],
     }));
   };
+
+  const isMobile = useIsMobile(768);
+  const [mobileSubTab, setMobileSubTab] = useState('register'); // 'register' | 'families'
 
   // CRUD Edit State: null = Add Mode, object = Edit Mode
   const [editingFamily, setEditingFamily] = useState(null);
@@ -162,6 +166,7 @@ export const FamilyHeadRegistration = ({ onNavigateToAddMember, onNavigateToPati
     setEditingFamily(fam);
     setErrorMessage('');
     setSuccessMessage('');
+    if (isMobile) setMobileSubTab('register');
 
     // Pre-populate fields from family & head patient
     setFormData({
@@ -327,9 +332,50 @@ export const FamilyHeadRegistration = ({ onNavigateToAddMember, onNavigateToPati
 
   return (
     <div style={styles.container} onKeyDown={handleFormKeyDown}>
-      <div ref={splitContainerRef} style={styles.gridContainer}>
+      {/* Mobile Segmented Sub-Tab Switcher */}
+      {isMobile && (
+        <div style={styles.mobileTabTrack}>
+          <button
+            type="button"
+            onClick={() => setMobileSubTab('register')}
+            style={{
+              ...styles.mobileTabBtn,
+              ...(mobileSubTab === 'register' ? styles.mobileTabBtnActive : {}),
+            }}
+          >
+            <ListChecks size={15} />
+            <span>{editingFamily ? 'Update Head' : 'Register Head'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileSubTab('families')}
+            style={{
+              ...styles.mobileTabBtn,
+              ...(mobileSubTab === 'families' ? styles.mobileTabBtnActive : {}),
+            }}
+          >
+            <FolderOpen size={15} />
+            <span>Families ({families.length})</span>
+          </button>
+        </div>
+      )}
+
+      <div
+        ref={splitContainerRef}
+        style={{
+          ...styles.gridContainer,
+          flexDirection: isMobile ? 'column' : 'row',
+        }}
+      >
         {/* LEFT PANE: Register / Update Family Head Form */}
-        <section style={{ ...styles.formPane, width: `${formWidthPercent}%` }}>
+        {(!isMobile || mobileSubTab === 'register') && (
+          <section
+            style={{
+              ...styles.formPane,
+              width: isMobile ? '100%' : `${formWidthPercent}%`,
+              minWidth: isMobile ? '100%' : '320px',
+            }}
+          >
           {/* Header */}
           <div style={styles.paneHeader}>
             <div style={styles.headerLeft}>
@@ -591,26 +637,30 @@ export const FamilyHeadRegistration = ({ onNavigateToAddMember, onNavigateToPati
             </div>
           </form>
         </section>
+        )}
 
-        {/* DRAGGER AT BORDER: Resize Form vs Directory */}
-        <div
-          onMouseDown={() => setIsDraggingDivider(true)}
-          style={{
-            ...styles.paneDragger,
-            backgroundColor: isDraggingDivider ? 'var(--primary)' : 'var(--border)',
-          }}
-          title="Drag border to resize Form vs Directory width"
-        >
-          <GripVertical size={13} color="var(--text-muted)" />
-        </div>
+        {/* DRAGGER AT BORDER: Resize Form vs Directory (Desktop Only) */}
+        {!isMobile && (
+          <div
+            onMouseDown={() => setIsDraggingDivider(true)}
+            style={{
+              ...styles.paneDragger,
+              backgroundColor: isDraggingDivider ? 'var(--primary)' : 'var(--border)',
+            }}
+            title="Drag border to resize Form vs Directory width"
+          >
+            <GripVertical size={13} color="var(--text-muted)" />
+          </div>
+        )}
 
         {/* RIGHT PANE: Registered Families Directory with Full CRUD */}
-        <section
-          style={{
-            ...styles.directoryPane,
-            width: `calc(${100 - formWidthPercent}% - 8px)`,
-          }}
-        >
+        {(!isMobile || mobileSubTab === 'families') && (
+          <section
+            style={{
+              ...styles.directoryPane,
+              width: isMobile ? '100%' : `calc(${100 - formWidthPercent}% - 8px)`,
+            }}
+          >
           <div style={styles.paneHeader}>
             <h3 style={styles.directoryTitle}>Registered Families Directory</h3>
             <span style={styles.countPill}>{families.length} families</span>
@@ -821,12 +871,45 @@ export const FamilyHeadRegistration = ({ onNavigateToAddMember, onNavigateToPati
             )}
           </div>
         </section>
+        )}
       </div>
     </div>
   );
 };
 
 const styles = {
+  mobileTabTrack: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    backgroundColor: '#F1F5F9',
+    padding: '4px',
+    borderRadius: '12px',
+    marginBottom: '8px',
+    flexShrink: 0,
+  },
+  mobileTabBtn: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: '#64748B',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  mobileTabBtnActive: {
+    backgroundColor: '#FFFFFF',
+    color: 'var(--primary)',
+    fontWeight: 700,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  },
   container: {
     width: '100%',
     height: '100%',

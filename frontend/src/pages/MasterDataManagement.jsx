@@ -912,7 +912,8 @@ const styles = {
     height: '100%',
     flex: 1,
     minHeight: 0,
-    overflow: 'hidden',
+    overflowY: 'auto',
+    overflowX: 'hidden',
   },
   toast: {
     display: 'flex',

@@ -12,6 +12,7 @@ import {
   updateCachedPatient,
 } from '../utils/patientCache';
 import { useDebounce } from '../hooks/useDebounce';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { InvestigationReportModal } from '../components/reports/InvestigationReportModal';
 import {
   Search,
@@ -177,7 +178,9 @@ export const PatientRecord = ({ selectedPatientId, onNavigateToAddMember }) => {
   // --- Layout Mode State ---
   // 'stacked' = Top Case Entry + Bottom History
   // 'side-by-side' = Left Case Entry + Right History
+  const isMobile = useIsMobile(768);
   const [layoutMode, setLayoutMode] = useState('stacked');
+  const effectiveLayoutMode = isMobile ? 'stacked' : layoutMode;
   const splitContainerRef = useRef(null);
   const bpInputRef = useRef(null);
   const caseFormPaneRef = useRef(null);
@@ -1176,7 +1179,13 @@ export const PatientRecord = ({ selectedPatientId, onNavigateToAddMember }) => {
   };
 
   return (
-    <div style={styles.container}>
+    <div
+      style={{
+        ...styles.container,
+        overflowY: isMobile ? 'auto' : 'hidden',
+        paddingBottom: isMobile ? '84px' : '6px',
+      }}
+    >
       {/* Toast Notification */}
       {toastMessage.text && (
         <div
@@ -1343,37 +1352,39 @@ export const PatientRecord = ({ selectedPatientId, onNavigateToAddMember }) => {
           )}
         </div>
 
-        {/* View Layout Mode Buttons (Stacked vs Side-by-Side) */}
-        <div style={styles.viewModeButtonGroup}>
-          <button
-            type="button"
-            onClick={() => setLayoutMode('stacked')}
-            style={{
-              ...styles.viewModeBtn,
-              backgroundColor: layoutMode === 'stacked' ? 'var(--primary-soft)' : '#FFFFFF',
-              color: layoutMode === 'stacked' ? 'var(--primary-dark)' : 'var(--text-muted)',
-              borderColor: layoutMode === 'stacked' ? 'var(--primary)' : 'var(--border)',
-            }}
-            title="Stacked View (Top Form / Bottom History)"
-          >
-            <Rows size={14} />
-            <span>Stacked</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setLayoutMode('side-by-side')}
-            style={{
-              ...styles.viewModeBtn,
-              backgroundColor: layoutMode === 'side-by-side' ? 'var(--primary-soft)' : '#FFFFFF',
-              color: layoutMode === 'side-by-side' ? 'var(--primary-dark)' : 'var(--text-muted)',
-              borderColor: layoutMode === 'side-by-side' ? 'var(--primary)' : 'var(--border)',
-            }}
-            title="Side-by-Side View (Left Form / Right History)"
-          >
-            <Columns size={14} />
-            <span>Split View</span>
-          </button>
-        </div>
+        {/* View Layout Mode Buttons (Stacked vs Side-by-Side - Desktop Only) */}
+        {!isMobile && (
+          <div style={styles.viewModeButtonGroup}>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('stacked')}
+              style={{
+                ...styles.viewModeBtn,
+                backgroundColor: layoutMode === 'stacked' ? 'var(--primary-soft)' : '#FFFFFF',
+                color: layoutMode === 'stacked' ? 'var(--primary-dark)' : 'var(--text-muted)',
+                borderColor: layoutMode === 'stacked' ? 'var(--primary)' : 'var(--border)',
+              }}
+              title="Stacked View (Top Form / Bottom History)"
+            >
+              <Rows size={14} />
+              <span>Stacked</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('side-by-side')}
+              style={{
+                ...styles.viewModeBtn,
+                backgroundColor: layoutMode === 'side-by-side' ? 'var(--primary-soft)' : '#FFFFFF',
+                color: layoutMode === 'side-by-side' ? 'var(--primary-dark)' : 'var(--text-muted)',
+                borderColor: layoutMode === 'side-by-side' ? 'var(--primary)' : 'var(--border)',
+              }}
+              title="Side-by-Side View (Left Form / Right History)"
+            >
+              <Columns size={14} />
+              <span>Split View</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ULTRA-COMPACT PATIENT INFO BANNER CARD */}
@@ -1618,7 +1629,7 @@ export const PatientRecord = ({ selectedPatientId, onNavigateToAddMember }) => {
           ref={splitContainerRef}
           style={{
             ...styles.visitLayoutWrapper,
-            flexDirection: layoutMode === 'side-by-side' ? 'row' : 'column',
+            flexDirection: effectiveLayoutMode === 'side-by-side' ? 'row' : 'column',
           }}
         >
           {/* LEFT / TOP PANE: THE CASE ENTRY FORM (SHOWN WHEN showNewCaseForm IS TRUE) */}
@@ -1627,7 +1638,7 @@ export const PatientRecord = ({ selectedPatientId, onNavigateToAddMember }) => {
               ref={caseFormPaneRef}
               style={{
                 ...styles.visitFormPane,
-                width: layoutMode === 'side-by-side' ? '56%' : '100%',
+                width: effectiveLayoutMode === 'side-by-side' ? '56%' : '100%',
                 flexShrink: 0,
               }}
             >
@@ -2251,7 +2262,7 @@ export const PatientRecord = ({ selectedPatientId, onNavigateToAddMember }) => {
           <div
             style={{
               ...styles.visitHistoryPane,
-              width: showNewCaseForm && layoutMode === 'side-by-side' ? '44%' : '100%',
+              width: showNewCaseForm && effectiveLayoutMode === 'side-by-side' ? '44%' : '100%',
               flex: 1,
               overflowY: 'auto',
             }}

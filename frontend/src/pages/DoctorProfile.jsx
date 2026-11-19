@@ -652,7 +652,7 @@ const styles = {
   },
   cardsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'minmax(320px, 1.25fr) minmax(320px, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
     gap: '20px',
     alignItems: 'start',
   },

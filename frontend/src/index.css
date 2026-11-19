@@ -261,3 +261,75 @@ input:focus, select:focus, textarea:focus {
 .resizing-active {
   user-select: none !important;
 }
+
+/* =========================================================
+   MOBILE & TOUCH ANIMATIONS & RESPONSIVE RULES
+   ========================================================= */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Mobile Viewport Optimizations (<= 768px) */
+@media screen and (max-width: 768px) {
+  html, body, #root {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    height: 100% !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide desktop-only controls */
+  .desktop-only-sidebar,
+  .desktop-only-dragger,
+  .desktop-only-navbar {
+    display: none !important;
+  }
+
+  /* Content area clearance for fixed mobile bottom nav */
+  .mobile-content-area,
+  main,
+  .main-content-scroll {
+    padding-bottom: calc(78px + env(safe-area-inset-bottom, 16px)) !important;
+  }
+
+  /* Form & grid adaptations */
+  .dash-workspace-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .med-cert-split {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    overflow-y: visible !important;
+  }
+
+  /* Touch enhancements */
+  button, input, select, textarea {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Desktop Viewport (>= 769px) */
+@media screen and (min-width: 769px) {
+  .mobile-bottom-nav,
+  .mobile-only-header,
+  .mobile-only-banner,
+  .mobile-dashboard-hero {
+    display: none !important;
+  }
+}
+

@@ -18,6 +18,8 @@ import { PatientRecord } from './PatientRecord';
 import { Reports } from './Reports';
 import { MedicalCertificate } from './MedicalCertificate';
 import { DoctorProfile } from './DoctorProfile';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { MobileBottomNav } from '../components/common/MobileBottomNav';
 import {
   Stethoscope,
   LogOut,
@@ -56,10 +58,16 @@ import {
   Download,
   Cloud,
   CloudOff,
+  Volume2,
+  Globe,
+  Bell,
+  Compass,
+  Home,
 } from 'lucide-react';
 
 export const Dashboard = () => {
   const { doctor, logout } = useAuth();
+  const isMobile = useIsMobile(768);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedFamilyId, setSelectedFamilyId] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState('');
@@ -413,6 +421,247 @@ export const Dashboard = () => {
         const activeReceived = stats.periodReceived !== undefined ? stats.periodReceived : (stats.todayReceived || 0);
         const activeCharge = stats.periodCharge !== undefined ? stats.periodCharge : (stats.todayCharge || 0);
         const activeDue = stats.periodDue !== undefined ? stats.periodDue : (stats.todayDue || 0);
+
+        // =========================================================================
+        // MOBILE DASHBOARD (MATCHING THE REFERENCE CITIZEN/CLINIC PORTAL DESIGN)
+        // =========================================================================
+        if (isMobile) {
+          return (
+            <div style={styles.mobileDashboardWrap}>
+              {/* 1. HERO GREETING CARD (Matches Reference Image Gradient & Card) */}
+              <div style={styles.mobileHeroCard}>
+                <div style={styles.mobileHeroTagRow}>
+                  <div style={styles.mobileHeroTagPill}>
+                    <span style={styles.mobileHeroTagCircle} />
+                    <span>
+                      {doctor?.address
+                        ? doctor.address.split(',')[0].toUpperCase()
+                        : 'AMROLI, SURAT • OPD CLINIC'}
+                    </span>
+                  </div>
+                </div>
+
+                <p style={styles.mobileHeroSub}>
+                  {doctor?.name || 'Dr. Chirag Paghdal'} &bull; {todayFormatted}
+                </p>
+
+                <h1 style={styles.mobileHeroTitle}>
+                  {getGreeting()}, {doctor?.name ? doctor.name.replace('Dr. ', '') : 'Doctor'}!
+                </h1>
+
+                {/* Prominent Action Button: [➕ Start OPD Consultation] (Like [📷 Report Issue] in photo) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPatientId('');
+                    setActiveTab('patient-record');
+                  }}
+                  style={styles.mobileHeroCtaBtn}
+                >
+                  <Stethoscope size={18} color="#146B5C" strokeWidth={2.5} />
+                  <span>Start OPD Consultation</span>
+                </button>
+              </div>
+
+              {/* 2. 2x2 KPI GRID (Matches Reference Photo 4-Card Grid) */}
+              <div style={styles.mobileKpiGrid}>
+                {/* Card 1: Today's OPD (Matches "Total Reports") */}
+                <div
+                  style={styles.mobileKpiCard}
+                  onClick={() => setActiveTab('reports')}
+                >
+                  <div style={styles.mobileKpiTop}>
+                    <span style={styles.mobileKpiTitle}>Today's OPD</span>
+                    <div style={{ ...styles.mobileKpiIcon, backgroundColor: '#E6F4F1', color: '#146B5C' }}>
+                      <FileText size={18} strokeWidth={2.2} />
+                    </div>
+                  </div>
+                  <div style={styles.mobileKpiValue}>{activeVisitsCount}</div>
+                  <span style={styles.mobileKpiSub}>Consultations today</span>
+                </div>
+
+                {/* Card 2: Pending Dues (Matches "Pending") */}
+                <div
+                  style={styles.mobileKpiCard}
+                  onClick={() => setActiveTab('reports')}
+                >
+                  <div style={styles.mobileKpiTop}>
+                    <span style={styles.mobileKpiTitle}>Pending Dues</span>
+                    <div style={{ ...styles.mobileKpiIcon, backgroundColor: '#FEF3C7', color: '#D97706' }}>
+                      <Clock size={18} strokeWidth={2.2} />
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      ...styles.mobileKpiValue,
+                      color: stats.overallDue > 0 ? '#B91C1C' : '#146B5C',
+                    }}
+                  >
+                    ₹{(Number(stats.overallDue) || 0).toLocaleString('en-IN')}
+                  </div>
+                  <span style={styles.mobileKpiSub}>Awaiting collection</span>
+                </div>
+
+                {/* Card 3: Total Patients (Matches "In Progress") */}
+                <div
+                  style={styles.mobileKpiCard}
+                  onClick={() => {
+                    setSelectedPatientId('');
+                    setActiveTab('patient-record');
+                  }}
+                >
+                  <div style={styles.mobileKpiTop}>
+                    <span style={styles.mobileKpiTitle}>Total Patients</span>
+                    <div style={{ ...styles.mobileKpiIcon, backgroundColor: '#E0F2FE', color: '#0284C7' }}>
+                      <Users size={18} strokeWidth={2.2} />
+                    </div>
+                  </div>
+                  <div style={styles.mobileKpiValue}>{stats.totalPatients}</div>
+                  <span style={styles.mobileKpiSub}>Registered in clinic</span>
+                </div>
+
+                {/* Card 4: Fee Collected (Matches "Resolved") */}
+                <div
+                  style={styles.mobileKpiCard}
+                  onClick={() => setActiveTab('reports')}
+                >
+                  <div style={styles.mobileKpiTop}>
+                    <span style={styles.mobileKpiTitle}>Fee Collected</span>
+                    <div style={{ ...styles.mobileKpiIcon, backgroundColor: '#DCFCE7', color: '#16A34A' }}>
+                      <CheckCircle2 size={18} strokeWidth={2.2} />
+                    </div>
+                  </div>
+                  <div style={styles.mobileKpiValue}>
+                    ₹{(Number(activeReceived) || 0).toLocaleString('en-IN')}
+                  </div>
+                  <span style={styles.mobileKpiSub}>Collected today</span>
+                </div>
+              </div>
+
+              {/* 3. QUICK CATEGORY ACTION CARDS (Matches "Cleanliness Drives", "Posts" in photo) */}
+              <div style={styles.mobileActionsGrid}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('family-head')}
+                  style={styles.mobileActionCard}
+                >
+                  <div style={{ ...styles.mobileActionIcon, backgroundColor: '#E6F4F1', color: '#146B5C' }}>
+                    <Users size={20} />
+                  </div>
+                  <span style={styles.mobileActionLabel}>Family Head Reg</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('add-member')}
+                  style={styles.mobileActionCard}
+                >
+                  <div style={{ ...styles.mobileActionIcon, backgroundColor: '#EFF6FF', color: '#2563EB' }}>
+                    <UserPlus size={20} />
+                  </div>
+                  <span style={styles.mobileActionLabel}>Add Member</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('medical-certificate')}
+                  style={styles.mobileActionCard}
+                >
+                  <div style={{ ...styles.mobileActionIcon, backgroundColor: '#FEF3C7', color: '#D97706' }}>
+                    <Award size={20} />
+                  </div>
+                  <span style={styles.mobileActionLabel}>Medical Cert</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('reports')}
+                  style={styles.mobileActionCard}
+                >
+                  <div style={{ ...styles.mobileActionIcon, backgroundColor: '#F3E8FF', color: '#9333EA' }}>
+                    <TrendingUp size={20} />
+                  </div>
+                  <span style={styles.mobileActionLabel}>OPD Reports</span>
+                </button>
+              </div>
+
+              {/* 4. RECENT OPD QUEUE SECTION (Matches "Recent Reports in Navsari ... View Details →" in photo) */}
+              <div style={styles.mobileRecentSection}>
+                <div style={styles.mobileRecentHeader}>
+                  <h3 style={styles.mobileRecentTitle}>Today's OPD Queue</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('reports')}
+                    style={styles.mobileViewDetailsBtn}
+                  >
+                    <span>View Details</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+
+                {recentVisits.length === 0 ? (
+                  <div style={styles.mobileEmptyCard}>
+                    <Stethoscope size={24} color="#94A3B8" />
+                    <p style={styles.mobileEmptyText}>No OPD consultations recorded today yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPatientId('');
+                        setActiveTab('patient-record');
+                      }}
+                      style={styles.mobileStartNowBtn}
+                    >
+                      + Start First Consultation
+                    </button>
+                  </div>
+                ) : (
+                  <div style={styles.mobileQueueList}>
+                    {recentVisits.slice(0, 6).map((visit) => (
+                      <div
+                        key={visit._id || visit.visitId}
+                        onClick={() => {
+                          setSelectedPatientId(visit.patientId);
+                          setActiveTab('patient-record');
+                        }}
+                        style={styles.mobileQueueCard}
+                      >
+                        <div style={styles.mobileQueueLeft}>
+                          <div style={styles.mobileQueueAvatar}>
+                            {visit.patientName?.charAt(0) || 'P'}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <span style={styles.mobileQueueName}>{visit.patientName}</span>
+                            <div style={styles.mobileQueueDetails}>
+                              <span>PID: {visit.patientId}</span>
+                              {visit.complaint && (
+                                <>
+                                  <span>&bull;</span>
+                                  <span style={styles.mobileQueueComplaint}>{visit.complaint}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={styles.mobileQueueRight}>
+                          <span
+                            style={{
+                              ...styles.mobileStatusBadge,
+                              backgroundColor: (visit.due || 0) > 0 ? '#FEE2E2' : '#DCFCE7',
+                              color: (visit.due || 0) > 0 ? '#DC2626' : '#15803D',
+                            }}
+                          >
+                            {(visit.due || 0) > 0 ? `Due ₹${visit.due}` : 'Paid'}
+                          </span>
+                          <ChevronRight size={16} color="#94A3B8" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
 
         return (
           <div style={{ ...styles.tabContentContainer, overflowY: 'auto', gap: '12px', paddingRight: '2px' }}>
@@ -1125,264 +1374,418 @@ export const Dashboard = () => {
     }
   };
 
-  return (
-    <div style={styles.layout}>
-      {/* Top Header / Bar */}
-      <header style={styles.navbar}>
-        <div style={styles.navBrand}>
-          <div style={styles.brandIcon}>
-            <Stethoscope size={24} color="#FFFFFF" />
-          </div>
-          <div>
-            <h2 style={styles.brandTitle}>{doctor?.clinicName || 'Clinic Management'}</h2>
-            <span style={styles.brandSub}>{doctor?.clinicTagline || 'Single Doctor Medical Suite'}</span>
-          </div>
-        </div>
+  // Helper to render universal search results dropdown (shared across desktop & mobile)
+  const renderSearchDropdown = () => {
+    if (!showSearchDropdown || !debouncedSearchQuery.trim()) return null;
+    const list = Array.isArray(searchResults) ? searchResults : [];
 
-        {/* Universal Search with '/' Shortcut & Rich Live Results */}
-        <div ref={searchWrapRef} style={styles.searchContainer}>
-          <Search size={16} color="var(--text-muted)" style={styles.searchIcon} />
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Universal Search: Patient, FAM ID, Patient ID, Area... (/)"
-            value={searchQuery}
-            onFocus={() => {
-              if (searchResults.length > 0) setShowSearchDropdown(true);
-            }}
-            onChange={(e) => handleUniversalSearchChange(e.target.value)}
-            onKeyDown={(e) => {
-              const list = Array.isArray(searchResults) ? searchResults : [];
-              if (e.key === 'ArrowDown') {
-                if (list.length > 0) {
-                  e.preventDefault();
-                  if (!showSearchDropdown) setShowSearchDropdown(true);
-                  setSearchHighlightIndex((prev) => (prev < list.length - 1 ? prev + 1 : 0));
-                }
-              } else if (e.key === 'ArrowUp') {
-                if (list.length > 0) {
-                  e.preventDefault();
-                  if (!showSearchDropdown) setShowSearchDropdown(true);
-                  setSearchHighlightIndex((prev) => (prev > 0 ? prev - 1 : list.length - 1));
-                }
-              } else if (e.key === 'Enter') {
-                if (list.length > 0) {
-                  e.preventDefault();
-                  const chosen = list[searchHighlightIndex] || list[0];
-                  if (chosen) {
+    return (
+      <div style={styles.globalSearchDropdown}>
+        {isSearching ? (
+          <div style={styles.searchDropdownMessage}>
+            <div style={styles.searchLoadingSpinner} />
+            <span>Searching database...</span>
+          </div>
+        ) : list.length === 0 ? (
+          <div style={styles.searchEmptyContainer}>
+            <p style={styles.searchEmptyTitle}>
+              No matching patients found for "{debouncedSearchQuery}"
+            </p>
+          </div>
+        ) : (
+          <div style={styles.searchResultsList}>
+            {list.map((m, idx) => {
+              const relationLabel = m.isHead
+                ? 'Head'
+                : m.relation || 'Member';
+              const displayPid =
+                m.patientId || (m._id ? String(m._id).slice(-4) : 'PID');
+              const allergyStr = Array.isArray(m.allergies)
+                ? m.allergies.filter(Boolean).join(', ')
+                : m.allergies || '';
+              const isHighlighted = idx === searchHighlightIndex;
+
+              return (
+                <div
+                  key={m._id || m.patientId}
+                  onClick={() => {
                     setShowSearchDropdown(false);
                     setSearchQuery('');
-                    setSelectedPatientId(chosen.patientId || chosen._id);
+                    setSelectedPatientId(m.patientId || m._id);
                     setActiveTab('patient-record');
-                  }
-                }
-              } else if (e.key === 'Escape') {
-                setShowSearchDropdown(false);
-              }
-            }}
-            style={styles.searchInput}
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setSearchResults([]);
-                setShowSearchDropdown(false);
-              }}
-              style={styles.clearSearchBtn}
-              title="Clear search"
-            >
-              <X size={14} color="var(--text-muted)" />
-            </button>
-          ) : (
-            <span style={styles.searchShortcutBadge}>/</span>
-          )}
-
-          {/* Debounced Universal Search Dropdown: Clean list of matched patients */}
-          {showSearchDropdown && debouncedSearchQuery.trim() && (() => {
-            const list = Array.isArray(searchResults) ? searchResults : [];
-
-            return (
-              <div style={styles.globalSearchDropdown}>
-                {isSearching ? (
-                  <div style={styles.searchDropdownMessage}>
-                    <div style={styles.searchLoadingSpinner} />
-                    <span>Searching database...</span>
+                  }}
+                  onMouseEnter={() => setSearchHighlightIndex(idx)}
+                  style={{
+                    ...styles.uniMemberCard,
+                    backgroundColor: isHighlighted ? 'var(--primary-soft)' : '#FFFFFF',
+                    borderLeft: isHighlighted ? '4px solid var(--primary)' : '4px solid transparent',
+                    boxShadow: isHighlighted ? '0 2px 8px rgba(20, 107, 92, 0.12)' : 'none',
+                  }}
+                  title={`Click or press Enter to open Patient Record for ${m.name}`}
+                >
+                  <div style={styles.uniMemberLeft}>
+                    <div style={styles.uniMemberNameRow}>
+                      <span style={styles.uniMemberName}>{m.name}</span>
+                      <span style={styles.uniMemberRelation}>
+                        ({relationLabel})
+                      </span>
+                    </div>
+                    <div style={styles.uniMemberDetails}>
+                      {m.age && <span>Age {m.age}</span>}
+                      <span>&bull;</span>
+                      <span>{m.gender || 'Not Specified'}</span>
+                      <span>&bull;</span>
+                      <span>{m.bloodGroup || 'Blood: --'}</span>
+                      {allergyStr && (
+                        <>
+                          <span>&bull;</span>
+                          <span style={styles.uniMemberAllergy}>
+                            ⚠️ {allergyStr}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                ) : list.length === 0 ? (
-                  <div style={styles.searchEmptyContainer}>
-                    <p style={styles.searchEmptyTitle}>
-                      No matching patients found for "{debouncedSearchQuery}"
-                    </p>
+
+                  <div style={styles.uniMemberRight}>
+                    <button
+                      type="button"
+                      style={styles.uniPatientIdBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSearchDropdown(false);
+                        setSearchQuery('');
+                        setSelectedPatientId(m.patientId || m._id);
+                        setActiveTab('patient-record');
+                      }}
+                    >
+                      <span>{displayPid}</span>
+                      <ArrowRight size={13} />
+                    </button>
                   </div>
-                ) : (
-                  <div style={styles.searchResultsList}>
-                    {list.map((m, idx) => {
-                      const relationLabel = m.isHead
-                        ? 'Head'
-                        : m.relation || 'Member';
-                      const displayPid =
-                        m.patientId || (m._id ? String(m._id).slice(-4) : 'PID');
-                      const allergyStr = Array.isArray(m.allergies)
-                        ? m.allergies.filter(Boolean).join(', ')
-                        : m.allergies || '';
-                      const isHighlighted = idx === searchHighlightIndex;
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
-                      return (
-                        <div
-                          key={m._id || m.patientId}
-                          onClick={() => {
-                            setShowSearchDropdown(false);
-                            setSearchQuery('');
-                            setSelectedPatientId(m.patientId || m._id);
-                            setActiveTab('patient-record');
-                          }}
-                          onMouseEnter={() => setSearchHighlightIndex(idx)}
-                          style={{
-                            ...styles.uniMemberCard,
-                            backgroundColor: isHighlighted ? 'var(--primary-soft)' : '#FFFFFF',
-                            borderLeft: isHighlighted ? '4px solid var(--primary)' : '4px solid transparent',
-                            boxShadow: isHighlighted ? '0 2px 8px rgba(20, 107, 92, 0.12)' : 'none',
-                          }}
-                          title={`Click or press Enter to open Patient Record for ${m.name}`}
-                        >
-                          <div style={styles.uniMemberLeft}>
-                            <div style={styles.uniMemberNameRow}>
-                              <span style={styles.uniMemberName}>{m.name}</span>
-                              <span style={styles.uniMemberRelation}>
-                                ({relationLabel})
-                              </span>
-                              {isHighlighted}
-                            </div>
-                            <div style={styles.uniMemberDetails}>
-                              {m.age && <span>Age {m.age}</span>}
-                              <span>&bull;</span>
-                              <span>{m.gender || 'Not Specified'}</span>
-                              <span>&bull;</span>
-                              <span>{m.bloodGroup || 'Blood: --'}</span>
-                              {allergyStr && (
-                                <>
-                                  <span>&bull;</span>
-                                  <span style={styles.uniMemberAllergy}>
-                                    ⚠️ {allergyStr}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          <div style={styles.uniMemberRight}>
-                            <button
-                              type="button"
-                              style={styles.uniPatientIdBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowSearchDropdown(false);
-                                setSearchQuery('');
-                                setSelectedPatientId(m.patientId || m._id);
-                                setActiveTab('patient-record');
-                              }}
-                            >
-                              <span>{displayPid}</span>
-                              <ArrowRight size={13} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Doctor Badge, PWA Install & Sign Out */}
-        <div style={styles.navActions}>
-          {/* Sync Status / Offline Indicator Pill */}
-          {!isOnline ? (
-            <div
-              style={styles.offlineStatusPill}
-              title="No internet connection. New records are saved to device memory and will auto-sync to cloud when online."
-            >
-              <CloudOff size={13} color="#D97706" />
-              <span>Offline Mode</span>
-              {offlinePendingCount > 0 && (
-                <span style={styles.offlineCountBadge}>{offlinePendingCount} pending</span>
-              )}
+  return (
+    <div style={styles.layout}>
+      {/* 1. DESKTOP NAVBAR (Visible on screen width > 768px) */}
+      {!isMobile && (
+        <header style={styles.navbar} className="desktop-only-navbar">
+          <div style={styles.navBrand}>
+            <div style={styles.brandIcon}>
+              <Stethoscope size={24} color="#FFFFFF" />
             </div>
-          ) : offlinePendingCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => triggerCloudSync()}
-              disabled={isSyncing}
-              style={styles.syncPendingNavBtn}
-              title="Click to manually sync all pending offline records to Cloud Database (MongoDB Atlas)"
-            >
-              <RefreshCw
-                size={13}
-                style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }}
-              />
-              <span>
-                {isSyncing
-                  ? syncFeedback || 'Syncing to Cloud...'
-                  : `Sync to Cloud (${offlinePendingCount})`}
-              </span>
-            </button>
-          ) : syncFeedback ? (
-            <div style={styles.syncSuccessPill}>
-              <Cloud size={13} color="#10B981" />
-              <span>{syncFeedback}</span>
-            </div>
-          ) : (
-            <div
-              style={styles.onlinePill}
-              title="Internet available. Connected to Cloud Database (MongoDB Atlas)."
-            >
-              <span style={styles.onlineDot} />
-              <span>Cloud Online</span>
-            </div>
-          )}
-
-          {/* PWA App Install Button */}
-          {installPrompt && (
-            <button
-              type="button"
-              onClick={handleInstallPWA}
-              style={styles.pwaInstallNavBtn}
-              title="Install Dhyey Clinic Management System as a desktop/mobile native app"
-            >
-              <Download size={13} />
-              <span>Install App</span>
-            </button>
-          )}
-
-          <div
-            style={{ ...styles.doctorBadge, cursor: 'pointer' }}
-            onClick={() => setActiveTab('doctor-profile')}
-            title="View & Edit Doctor Profile and Login Credentials (F8)"
-          >
-            <div style={styles.avatarCircle}>
-              {doctor?.name?.charAt(0) || 'D'}
-            </div>
-            <div style={styles.doctorInfo}>
-              <span style={styles.doctorName}>{doctor?.name || 'Dr. Dhyey'}</span>
-              <span style={styles.doctorSpecialty}>{doctor?.specialization || 'Physician'}</span>
+            <div>
+              <h2 style={styles.brandTitle}>{doctor?.clinicName || 'Clinic Management'}</h2>
+              <span style={styles.brandSub}>{doctor?.clinicTagline || 'Single Doctor Medical Suite'}</span>
             </div>
           </div>
 
-          <button onClick={handleLogout} style={styles.logoutBtn} title="Sign Out">
-            <LogOut size={16} />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      </header>
+          {/* Universal Search with '/' Shortcut & Rich Live Results */}
+          <div ref={searchWrapRef} style={styles.searchContainer}>
+            <Search size={16} color="var(--text-muted)" style={styles.searchIcon} />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Universal Search: Patient, FAM ID, Patient ID, Area... (/)"
+              value={searchQuery}
+              onFocus={() => {
+                if (searchResults.length > 0) setShowSearchDropdown(true);
+              }}
+              onChange={(e) => handleUniversalSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                const list = Array.isArray(searchResults) ? searchResults : [];
+                if (e.key === 'ArrowDown') {
+                  if (list.length > 0) {
+                    e.preventDefault();
+                    if (!showSearchDropdown) setShowSearchDropdown(true);
+                    setSearchHighlightIndex((prev) => (prev < list.length - 1 ? prev + 1 : 0));
+                  }
+                } else if (e.key === 'ArrowUp') {
+                  if (list.length > 0) {
+                    e.preventDefault();
+                    if (!showSearchDropdown) setShowSearchDropdown(true);
+                    setSearchHighlightIndex((prev) => (prev > 0 ? prev - 1 : list.length - 1));
+                  }
+                } else if (e.key === 'Enter') {
+                  if (list.length > 0) {
+                    e.preventDefault();
+                    const chosen = list[searchHighlightIndex] || list[0];
+                    if (chosen) {
+                      setShowSearchDropdown(false);
+                      setSearchQuery('');
+                      setSelectedPatientId(chosen.patientId || chosen._id);
+                      setActiveTab('patient-record');
+                    }
+                  }
+                } else if (e.key === 'Escape') {
+                  setShowSearchDropdown(false);
+                }
+              }}
+              style={styles.searchInput}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  setShowSearchDropdown(false);
+                }}
+                style={styles.clearSearchBtn}
+                title="Clear search"
+              >
+                <X size={14} color="var(--text-muted)" />
+              </button>
+            ) : (
+              <span style={styles.searchShortcutBadge}>/</span>
+            )}
 
-      {/* Main Body (Sidebar + Content Area) */}
+            {/* Debounced Search Dropdown */}
+            {renderSearchDropdown()}
+          </div>
+
+          {/* Doctor Badge, PWA Install & Sign Out */}
+          <div style={styles.navActions}>
+            {!isOnline ? (
+              <div
+                style={styles.offlineStatusPill}
+                title="No internet connection. New records are saved to device memory and will auto-sync to cloud when online."
+              >
+                <CloudOff size={13} color="#D97706" />
+                <span>Offline Mode</span>
+                {offlinePendingCount > 0 && (
+                  <span style={styles.offlineCountBadge}>{offlinePendingCount} pending</span>
+                )}
+              </div>
+            ) : offlinePendingCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => triggerCloudSync()}
+                disabled={isSyncing}
+                style={styles.syncPendingNavBtn}
+                title="Click to manually sync all pending offline records to Cloud Database (MongoDB Atlas)"
+              >
+                <RefreshCw
+                  size={13}
+                  style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }}
+                />
+                <span>
+                  {isSyncing
+                    ? syncFeedback || 'Syncing to Cloud...'
+                    : `Sync to Cloud (${offlinePendingCount})`}
+                </span>
+              </button>
+            ) : syncFeedback ? (
+              <div style={styles.syncSuccessPill}>
+                <Cloud size={13} color="#10B981" />
+                <span>{syncFeedback}</span>
+              </div>
+            ) : (
+              <div
+                style={styles.onlinePill}
+                title="Internet available. Connected to Cloud Database (MongoDB Atlas)."
+              >
+                <span style={styles.onlineDot} />
+                <span>Cloud Online</span>
+              </div>
+            )}
+
+            {installPrompt && (
+              <button
+                type="button"
+                onClick={handleInstallPWA}
+                style={styles.pwaInstallNavBtn}
+                title="Install Dhyey Clinic Management System as a desktop/mobile native app"
+              >
+                <Download size={13} />
+                <span>Install App</span>
+              </button>
+            )}
+
+            <div
+              style={{ ...styles.doctorBadge, cursor: 'pointer' }}
+              onClick={() => setActiveTab('doctor-profile')}
+              title="View & Edit Doctor Profile and Login Credentials (F8)"
+            >
+              <div style={styles.avatarCircle}>
+                {doctor?.name?.charAt(0) || 'D'}
+              </div>
+              <div style={styles.doctorInfo}>
+                <span style={styles.doctorName}>{doctor?.name || 'Dr. Dhyey'}</span>
+                <span style={styles.doctorSpecialty}>{doctor?.specialization || 'Physician'}</span>
+              </div>
+            </div>
+
+            <button onClick={handleLogout} style={styles.logoutBtn} title="Sign Out">
+              <LogOut size={16} />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </header>
+      )}
+
+      {/* 2. MOBILE TOP NAVBAR (Visible on screen width <= 768px, matching reference image) */}
+      {isMobile && (
+        <header style={styles.mobileNavbar} className="mobile-only-header">
+          <div style={styles.mobileNavTop}>
+            <div style={styles.mobileNavBrand}>
+              <div style={styles.mobileBrandIcon}>
+                <Stethoscope size={18} color="#FFFFFF" strokeWidth={2.5} />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <h2 style={styles.mobileBrandTitle}>
+                    {doctor?.clinicName?.split(' ')[0] || 'Dhyey'} Clinic
+                  </h2>
+                  <span style={styles.mobileNmcBadge}>OPD</span>
+                </div>
+                <span style={styles.mobileBrandSub}>
+                  {doctor?.clinicTagline || 'CLINIC PORTAL'}
+                </span>
+              </div>
+            </div>
+
+            <div style={styles.mobileNavActions}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(
+                      `Welcome to ${doctor?.clinicName || 'Dhyey Clinic'}. Today's consultations: ${dashboardData?.stats?.todayVisitsCount || 0}`
+                    );
+                    window.speechSynthesis.speak(utterance);
+                  }
+                }}
+                style={styles.mobileIconBtn}
+                title="Sound announcement"
+              >
+                <Volume2 size={16} color="var(--primary)" />
+              </button>
+
+              <div style={styles.mobileLangBadge} title="Language">
+                <Globe size={13} color="var(--primary)" />
+                <span>EN</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('reports')}
+                style={styles.mobileBellBtn}
+                title="Today's OPD Queue"
+              >
+                <Bell size={16} color="var(--primary)" />
+                {(dashboardData?.stats?.todayVisitsCount || 0) > 0 && (
+                  <span style={styles.mobileBellBadge}>
+                    {dashboardData?.stats?.todayVisitsCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Status Sub-bar: 🟢 Live Location / Cloud Sync Active | ✔️ 0ms RAM Cache */}
+          <div style={styles.mobileLiveStatusBar}>
+            <div style={styles.mobileLiveStatusLeft}>
+              <span style={styles.mobileStatusPulseDot} />
+              <Compass size={13} color="#059669" />
+              <span style={styles.mobileStatusText}>
+                {isOnline
+                  ? 'Live Cloud Sync Active'
+                  : `Offline Mode (${offlinePendingCount} pending)`}
+              </span>
+            </div>
+            <div style={styles.mobileLiveStatusRight}>
+              <CheckCircle2 size={13} color="#059669" />
+              <span style={styles.mobileStatusText}>0ms RAM Cache</span>
+            </div>
+          </div>
+
+          {/* Mobile Universal Search */}
+          <div ref={searchWrapRef} style={styles.mobileSearchContainer}>
+            <Search size={15} color="var(--text-muted)" style={styles.searchIcon} />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search Patient, Name, Phone, PID..."
+              value={searchQuery}
+              onFocus={() => {
+                if (searchResults.length > 0) setShowSearchDropdown(true);
+              }}
+              onChange={(e) => handleUniversalSearchChange(e.target.value)}
+              style={styles.mobileSearchInput}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  setShowSearchDropdown(false);
+                }}
+                style={styles.clearSearchBtn}
+              >
+                <X size={14} color="var(--text-muted)" />
+              </button>
+            )}
+
+            {/* Dropdown in Mobile */}
+            {renderSearchDropdown()}
+          </div>
+        </header>
+      )}
+
+      {/* Main Body (Desktop Sidebar + Content Area) */}
       <div style={styles.body}>
-        {/* Exact Tab Navigation Sidebar */}
-        <SidebarTabs
+        {!isMobile && (
+          <>
+            <SidebarTabs
+              activeTab={activeTab}
+              onSelectTab={(tabId) => {
+                if (tabId === 'patient-record') {
+                  setSelectedPatientId('');
+                }
+                setActiveTab(tabId);
+              }}
+              onSearchFocus={handleSearchFocus}
+              width={sidebarWidth}
+            />
+
+            {/* DRAGGER AT BORDER: Resize Sidebar */}
+            <div
+              onMouseDown={() => setIsDraggingSidebar(true)}
+              title="Drag left/right to resize sidebar"
+              style={{
+                ...styles.sidebarDragger,
+                backgroundColor: isDraggingSidebar ? 'var(--primary)' : 'transparent',
+              }}
+            >
+              <div style={styles.draggerGripLine} />
+            </div>
+          </>
+        )}
+
+        {/* Content Pane */}
+        <main
+          style={{
+            ...styles.mainContent,
+            paddingBottom: isMobile ? '78px' : '0px',
+          }}
+          className="mobile-content-area"
+        >
+          {renderTabContent()}
+        </main>
+      </div>
+
+      {/* Fixed Mobile Bottom Navigation Bar (Matching Reference Image) */}
+      {isMobile && (
+        <MobileBottomNav
           activeTab={activeTab}
           onSelectTab={(tabId) => {
             if (tabId === 'patient-record') {
@@ -1390,27 +1793,20 @@ export const Dashboard = () => {
             }
             setActiveTab(tabId);
           }}
-          onSearchFocus={handleSearchFocus}
-          width={sidebarWidth}
-        />
-
-        {/* DRAGGER AT BORDER: Resize Sidebar */}
-        <div
-          onMouseDown={() => setIsDraggingSidebar(true)}
-          title="Drag left/right to resize sidebar"
-          style={{
-            ...styles.sidebarDragger,
-            backgroundColor: isDraggingSidebar ? 'var(--primary)' : 'transparent',
+          onNewConsultation={() => {
+            setSelectedPatientId('');
+            setActiveTab('patient-record');
           }}
-        >
-          <div style={styles.draggerGripLine} />
-        </div>
-
-        {/* Content Pane */}
-        <main style={styles.mainContent}>
-          {renderTabContent()}
-        </main>
-      </div>
+          onLogout={handleLogout}
+          doctor={doctor}
+          isOnline={isOnline}
+          offlinePendingCount={offlinePendingCount}
+          isSyncing={isSyncing}
+          onTriggerSync={triggerCloudSync}
+          installPrompt={installPrompt}
+          onInstallApp={handleInstallPWA}
+        />
+      )}
     </div>
   );
 };
@@ -2551,5 +2947,473 @@ const styles = {
     fontSize: '0.74rem',
     fontWeight: 700,
     color: '#0F172A',
+  },
+
+  // =========================================================================
+  // MOBILE RESPONSIVE STYLES (MATCHING REFERENCE CITIZEN/CLINIC PORTAL DESIGN)
+  // =========================================================================
+  mobileNavbar: {
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: '#FFFFFF',
+    borderBottom: '1px solid var(--border)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+    padding: '10px 12px 10px 12px',
+    gap: '8px',
+    zIndex: 100,
+  },
+  mobileNavTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  mobileNavBrand: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  mobileBrandIcon: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '10px',
+    background: 'linear-gradient(135deg, #146B5C 0%, #0E4F44 100%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 8px rgba(20, 107, 92, 0.25)',
+  },
+  mobileBrandTitle: {
+    fontSize: '0.98rem',
+    fontWeight: 800,
+    color: '#0F172A',
+    margin: 0,
+    letterSpacing: '-0.02em',
+    lineHeight: 1.1,
+  },
+  mobileNmcBadge: {
+    backgroundColor: '#DCEFEA',
+    color: '#0E4F44',
+    fontSize: '0.65rem',
+    fontWeight: 800,
+    padding: '1px 6px',
+    borderRadius: '8px',
+    letterSpacing: '0.5px',
+  },
+  mobileBrandSub: {
+    fontSize: '0.68rem',
+    fontWeight: 700,
+    color: '#64748B',
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+  },
+  mobileNavActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  mobileIconBtn: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    backgroundColor: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  mobileLangBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '5px 8px',
+    backgroundColor: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    borderRadius: '16px',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    color: '#1E293B',
+  },
+  mobileBellBtn: {
+    position: 'relative',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    backgroundColor: '#F8FAFC',
+    border: '1px solid #E2E8F0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  mobileBellBadge: {
+    position: 'absolute',
+    top: '-3px',
+    right: '-3px',
+    backgroundColor: '#DC2626',
+    color: '#FFFFFF',
+    fontSize: '0.62rem',
+    fontWeight: 800,
+    width: '16px',
+    height: '16px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1.5px solid #FFFFFF',
+  },
+
+  // Mobile Live Status Bar (Matching reference image: 🟢 Live Location Active / ✔️ GPS Monitored)
+  mobileLiveStatusBar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0FDF4',
+    border: '1px solid #DCFCE7',
+    borderRadius: '8px',
+    padding: '5px 10px',
+  },
+  mobileLiveStatusLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  mobileLiveStatusRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+  },
+  mobileStatusPulseDot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    backgroundColor: '#10B981',
+    boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.3)',
+  },
+  mobileStatusText: {
+    fontSize: '0.68rem',
+    fontWeight: 700,
+    color: '#065F46',
+  },
+
+  // Mobile Search Container
+  mobileSearchContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  mobileSearchInput: {
+    width: '100%',
+    height: '38px',
+    backgroundColor: '#F8FAFC',
+    border: '1px solid var(--border)',
+    borderRadius: '12px',
+    padding: '0 32px 0 34px',
+    fontSize: '13px',
+    color: 'var(--text)',
+    outline: 'none',
+    boxSizing: 'border-box',
+    boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.04)',
+  },
+
+  // Mobile Dashboard Container & Hero Card
+  mobileDashboardWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+    padding: '12px 14px',
+    boxSizing: 'border-box',
+    overflowY: 'auto',
+  },
+  mobileHeroCard: {
+    background: 'linear-gradient(135deg, #146B5C 0%, #0E4F44 100%)',
+    borderRadius: '20px',
+    padding: '18px 16px',
+    color: '#FFFFFF',
+    boxShadow: '0 8px 24px rgba(20, 107, 92, 0.28)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  mobileHeroTagRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  mobileHeroTagPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    border: '1px solid rgba(255, 255, 255, 0.25)',
+    borderRadius: '20px',
+    padding: '3px 9px',
+    fontSize: '0.68rem',
+    fontWeight: 700,
+    color: '#FFFFFF',
+    letterSpacing: '0.3px',
+  },
+  mobileHeroTagCircle: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    backgroundColor: '#34D399',
+    boxShadow: '0 0 6px #34D399',
+  },
+  mobileHeroSub: {
+    fontSize: '0.74rem',
+    color: 'rgba(255, 255, 255, 0.85)',
+    margin: 0,
+    fontWeight: 500,
+  },
+  mobileHeroTitle: {
+    fontSize: '1.35rem',
+    fontWeight: 800,
+    color: '#FFFFFF',
+    margin: 0,
+    letterSpacing: '-0.02em',
+    lineHeight: 1.15,
+  },
+  mobileHeroCtaBtn: {
+    marginTop: '6px',
+    backgroundColor: '#FFFFFF',
+    color: '#146B5C',
+    border: 'none',
+    borderRadius: '14px',
+    padding: '11px 16px',
+    fontSize: '0.9rem',
+    fontWeight: 800,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+    cursor: 'pointer',
+    width: '100%',
+    outline: 'none',
+  },
+
+  // Mobile 2x2 KPI Grid
+  mobileKpiGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '10px',
+    width: '100%',
+  },
+  mobileKpiCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
+    padding: '14px',
+    border: '1px solid #E2E8F0',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  mobileKpiTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  mobileKpiTitle: {
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    color: '#475569',
+  },
+  mobileKpiIcon: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileKpiValue: {
+    fontSize: '1.4rem',
+    fontWeight: 800,
+    color: '#0F172A',
+    lineHeight: 1.2,
+    margin: '2px 0 0 0',
+  },
+  mobileKpiSub: {
+    fontSize: '0.68rem',
+    color: '#94A3B8',
+    fontWeight: 500,
+  },
+
+  // Mobile Quick Action Category Cards
+  mobileActionsGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '10px',
+    width: '100%',
+  },
+  mobileActionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
+    padding: '14px 12px',
+    border: '1px solid #E2E8F0',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    cursor: 'pointer',
+    outline: 'none',
+  },
+  mobileActionIcon: {
+    width: '42px',
+    height: '42px',
+    borderRadius: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileActionLabel: {
+    fontSize: '0.8rem',
+    fontWeight: 700,
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+
+  // Mobile Recent Queue Section
+  mobileRecentSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    width: '100%',
+  },
+  mobileRecentHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 2px',
+  },
+  mobileRecentTitle: {
+    fontSize: '0.96rem',
+    fontWeight: 800,
+    color: '#0F172A',
+    margin: 0,
+    letterSpacing: '-0.01em',
+  },
+  mobileViewDetailsBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    background: 'none',
+    border: 'none',
+    color: 'var(--primary)',
+    fontSize: '0.78rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  mobileEmptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: '16px',
+    padding: '24px 16px',
+    border: '1px dashed #CBD5E1',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    textAlign: 'center',
+  },
+  mobileEmptyText: {
+    fontSize: '0.82rem',
+    color: '#64748B',
+    margin: 0,
+  },
+  mobileStartNowBtn: {
+    marginTop: '4px',
+    backgroundColor: '#DCEFEA',
+    color: '#0E4F44',
+    border: 'none',
+    borderRadius: '10px',
+    padding: '7px 14px',
+    fontSize: '0.78rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  mobileQueueList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  mobileQueueCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: '14px',
+    padding: '12px 14px',
+    border: '1px solid #E2E8F0',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.02)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px',
+    cursor: 'pointer',
+  },
+  mobileQueueLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    minWidth: 0,
+    flex: 1,
+  },
+  mobileQueueAvatar: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--primary-soft)',
+    color: 'var(--primary-dark)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '14px',
+    fontWeight: 800,
+    flexShrink: 0,
+  },
+  mobileQueueName: {
+    fontSize: '0.88rem',
+    fontWeight: 700,
+    color: '#0F172A',
+    display: 'block',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  mobileQueueDetails: {
+    fontSize: '0.7rem',
+    color: '#64748B',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  mobileQueueComplaint: {
+    color: '#059669',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: '120px',
+  },
+  mobileQueueRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexShrink: 0,
+  },
+  mobileStatusBadge: {
+    padding: '3px 8px',
+    borderRadius: '10px',
+    fontSize: '0.7rem',
+    fontWeight: 700,
   },
 };
