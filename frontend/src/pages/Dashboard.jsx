@@ -1,9 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useDebounce } from '../hooks/useDebounce';
-import { familyAPI, universalSearchAPI, reportAPI } from '../services/api';
+import { familyAPI, universalSearchAPI, reportAPI, triggerCloudSync } from '../services/api';
 import { preloadMasterData } from '../components/common/MasterDataInput';
 import { preloadPatients, searchPatientsInMemory } from '../utils/patientCache';
+import {
+  getOfflineQueueCount,
+  addSyncListener,
+  getStoredPatients,
+  getOfflineVisits,
+} from '../utils/offlineSyncManager';
 import { SidebarTabs } from '../components/common/SidebarTabs';
 import { FamilyHeadRegistration } from './FamilyHeadRegistration';
 import { MasterDataManagement } from './MasterDataManagement';
@@ -48,6 +54,8 @@ import {
   Plus,
   PieChart,
   Download,
+  Cloud,
+  CloudOff,
 } from 'lucide-react';
 
 export const Dashboard = () => {
@@ -75,9 +83,45 @@ export const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
 
-  // PWA Install State & Network Status
+  // PWA Install State, Network Status & Cloud Sync State
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [offlinePendingCount, setOfflinePendingCount] = useState(getOfflineQueueCount());
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState('');
+
+  useEffect(() => {
+    // Listen to background sync progress
+    const unsubscribe = addSyncListener((event) => {
+      setOfflinePendingCount(getOfflineQueueCount());
+      if (event.type === 'SYNC_START') {
+        setIsSyncing(true);
+        setSyncFeedback(`Syncing ${event.total} record(s) to Cloud...`);
+      } else if (event.type === 'SYNC_PROGRESS') {
+        setSyncFeedback(`Synced ${event.syncedCount} of ${event.total}...`);
+      } else if (event.type === 'SYNC_COMPLETE') {
+        setIsSyncing(false);
+        setSyncFeedback(
+          event.syncedCount > 0
+            ? `✓ Synced ${event.syncedCount} record(s) to Cloud Database!`
+            : ''
+        );
+        setTimeout(() => setSyncFeedback(''), 4500);
+      }
+    });
+
+    const handleSyncFinished = () => {
+      setOfflinePendingCount(getOfflineQueueCount());
+      fetchDashboardData().catch(() => {});
+    };
+
+    window.addEventListener('dhyey_offline_sync_finished', handleSyncFinished);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('dhyey_offline_sync_finished', handleSyncFinished);
+    };
+  }, []);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
@@ -157,7 +201,23 @@ export const Dashboard = () => {
         setDashboardData(res);
       }
     } catch (err) {
-      console.error('Error fetching dashboard summary:', err);
+      console.warn('Dashboard summary offline fallback:', err);
+      const cachedPatients = getStoredPatients();
+      const offlineVisits = getOfflineVisits();
+      setDashboardData({
+        success: true,
+        stats: {
+          totalPatients: cachedPatients.length,
+          totalFamilies: new Set(cachedPatients.map((p) => p.familyId)).size,
+          totalVisits: offlineVisits.length,
+          todayVisitsCount: offlineVisits.length,
+          overallDue: cachedPatients.reduce((sum, p) => sum + (Number(p.totalDue) || 0), 0),
+          overallReceived: offlineVisits.reduce((sum, v) => sum + (Number(v.received) || 0), 0),
+          overallCharge: offlineVisits.reduce((sum, v) => sum + (Number(v.charge) || 0), 0),
+        },
+        recentVisits: offlineVisits.slice(0, 10),
+        recentPatients: cachedPatients.slice(0, 10),
+      });
     } finally {
       setLoadingDashboard(false);
     }
@@ -310,18 +370,23 @@ export const Dashboard = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard': {
-        const stats = dashboardData?.stats || {
-          totalPatients: 0,
-          totalFamilies: 0,
-          totalVisits: 0,
-          totalCertificates: 0,
-          todayVisitsCount: 0,
-          todayCharge: 0,
-          todayReceived: 0,
-          todayDue: 0,
-          overallCharge: 0,
-          overallReceived: 0,
-          overallDue: 0,
+        const rawStats = dashboardData?.stats || {};
+        const stats = {
+          totalPatients: Number(rawStats.totalPatients) || 0,
+          totalFamilies: Number(rawStats.totalFamilies) || 0,
+          totalVisits: Number(rawStats.totalVisits) || 0,
+          totalCertificates: Number(rawStats.totalCertificates) || 0,
+          todayVisitsCount: Number(rawStats.todayVisitsCount) || 0,
+          todayCharge: Number(rawStats.todayCharge) || 0,
+          todayReceived: Number(rawStats.todayReceived) || 0,
+          todayDue: Number(rawStats.todayDue) || 0,
+          overallCharge: Number(rawStats.overallCharge) || 0,
+          overallReceived: Number(rawStats.overallReceived) || 0,
+          overallDue: Number(rawStats.overallDue) || 0,
+          periodVisitsCount: rawStats.periodVisitsCount !== undefined ? (Number(rawStats.periodVisitsCount) || 0) : undefined,
+          periodReceived: rawStats.periodReceived !== undefined ? (Number(rawStats.periodReceived) || 0) : undefined,
+          periodCharge: rawStats.periodCharge !== undefined ? (Number(rawStats.periodCharge) || 0) : undefined,
+          periodDue: rawStats.periodDue !== undefined ? (Number(rawStats.periodDue) || 0) : undefined,
         };
         const recentVisits = dashboardData?.recentVisits || [];
         const recentPatients = dashboardData?.recentPatients || [];
@@ -344,10 +409,10 @@ export const Dashboard = () => {
                   : 'Today'
         );
 
-        const activeVisitsCount = stats.periodVisitsCount !== undefined ? stats.periodVisitsCount : stats.todayVisitsCount;
-        const activeReceived = stats.periodReceived !== undefined ? stats.periodReceived : stats.todayReceived;
-        const activeCharge = stats.periodCharge !== undefined ? stats.periodCharge : stats.todayCharge;
-        const activeDue = stats.periodDue !== undefined ? stats.periodDue : stats.todayDue;
+        const activeVisitsCount = stats.periodVisitsCount !== undefined ? stats.periodVisitsCount : (stats.todayVisitsCount || 0);
+        const activeReceived = stats.periodReceived !== undefined ? stats.periodReceived : (stats.todayReceived || 0);
+        const activeCharge = stats.periodCharge !== undefined ? stats.periodCharge : (stats.todayCharge || 0);
+        const activeDue = stats.periodDue !== undefined ? stats.periodDue : (stats.todayDue || 0);
 
         return (
           <div style={{ ...styles.tabContentContainer, overflowY: 'auto', gap: '12px', paddingRight: '2px' }}>
@@ -538,10 +603,10 @@ export const Dashboard = () => {
                   </div>
                 </div>
                 <div style={styles.dashKpiValueRow}>
-                  <h2 style={styles.dashKpiValue}>₹{activeReceived.toLocaleString('en-IN')}</h2>
+                  <h2 style={styles.dashKpiValue}>₹{(Number(activeReceived) || 0).toLocaleString('en-IN')}</h2>
                 </div>
                 <div style={styles.dashKpiFooter}>
-                  <span>Billed: ₹{activeCharge.toLocaleString('en-IN')} &bull; Due: ₹{activeDue.toLocaleString('en-IN')}</span>
+                  <span>Billed: ₹{(Number(activeCharge) || 0).toLocaleString('en-IN')} &bull; Due: ₹{(Number(activeDue) || 0).toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -549,8 +614,8 @@ export const Dashboard = () => {
               <div
                 style={{
                   ...styles.dashKpiCard,
-                  borderColor: stats.overallDue > 0 ? '#FCA5A5' : 'var(--border)',
-                  backgroundColor: stats.overallDue > 0 ? '#FFF7F7' : 'var(--surface)',
+                  borderColor: (stats.overallDue || 0) > 0 ? '#FCA5A5' : 'var(--border)',
+                  backgroundColor: (stats.overallDue || 0) > 0 ? '#FFF7F7' : 'var(--surface)',
                   cursor: 'pointer',
                 }}
                 onClick={() => setActiveTab('reports')}
@@ -561,21 +626,21 @@ export const Dashboard = () => {
                   <div
                     style={{
                       ...styles.dashKpiIconWrap,
-                      backgroundColor: stats.overallDue > 0 ? '#FEE2E2' : '#F0FDF4',
-                      color: stats.overallDue > 0 ? '#DC2626' : '#15803D',
+                      backgroundColor: (stats.overallDue || 0) > 0 ? '#FEE2E2' : '#F0FDF4',
+                      color: (stats.overallDue || 0) > 0 ? '#DC2626' : '#15803D',
                     }}
                   >
-                    {stats.overallDue > 0 ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
+                    {(stats.overallDue || 0) > 0 ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
                   </div>
                 </div>
                 <div style={styles.dashKpiValueRow}>
                   <h2
                     style={{
                       ...styles.dashKpiValue,
-                      color: stats.overallDue > 0 ? '#B91C1C' : '#15803D',
+                      color: (stats.overallDue || 0) > 0 ? '#B91C1C' : '#15803D',
                     }}
                   >
-                    ₹{stats.overallDue.toLocaleString('en-IN')}
+                    ₹{(Number(stats.overallDue) || 0).toLocaleString('en-IN')}
                   </h2>
                 </div>
                 <div style={styles.dashKpiFooter}>
@@ -854,12 +919,12 @@ export const Dashboard = () => {
                     <div style={styles.finBreakdownList}>
                       <div style={styles.finRow}>
                         <span style={styles.finLabel}>Total Billed:</span>
-                        <strong style={styles.finVal}>₹{stats.overallCharge.toLocaleString('en-IN')}</strong>
+                        <strong style={styles.finVal}>₹{(Number(stats.overallCharge) || 0).toLocaleString('en-IN')}</strong>
                       </div>
                       <div style={styles.finRow}>
                         <span style={styles.finLabel}>Total Received:</span>
                         <strong style={{ ...styles.finVal, color: '#15803D' }}>
-                          ₹{stats.overallReceived.toLocaleString('en-IN')}
+                          ₹{(Number(stats.overallReceived) || 0).toLocaleString('en-IN')}
                         </strong>
                       </div>
                       <div style={styles.finRow}>
@@ -867,10 +932,10 @@ export const Dashboard = () => {
                         <strong
                           style={{
                             ...styles.finVal,
-                            color: stats.overallDue > 0 ? '#DC2626' : '#15803D',
+                            color: (stats.overallDue || 0) > 0 ? '#DC2626' : '#15803D',
                           }}
                         >
-                          ₹{stats.overallDue.toLocaleString('en-IN')}
+                          ₹{(Number(stats.overallDue) || 0).toLocaleString('en-IN')}
                         </strong>
                       </div>
                     </div>
@@ -1235,11 +1300,48 @@ export const Dashboard = () => {
 
         {/* Doctor Badge, PWA Install & Sign Out */}
         <div style={styles.navActions}>
-          {/* Offline Status Indicator */}
-          {!isOnline && (
-            <div style={styles.offlineStatusPill} title="No internet connection. App running from offline cache.">
-              <span style={styles.offlineDot} />
-              <span>Offline</span>
+          {/* Sync Status / Offline Indicator Pill */}
+          {!isOnline ? (
+            <div
+              style={styles.offlineStatusPill}
+              title="No internet connection. New records are saved to device memory and will auto-sync to cloud when online."
+            >
+              <CloudOff size={13} color="#D97706" />
+              <span>Offline Mode</span>
+              {offlinePendingCount > 0 && (
+                <span style={styles.offlineCountBadge}>{offlinePendingCount} pending</span>
+              )}
+            </div>
+          ) : offlinePendingCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => triggerCloudSync()}
+              disabled={isSyncing}
+              style={styles.syncPendingNavBtn}
+              title="Click to manually sync all pending offline records to Cloud Database (MongoDB Atlas)"
+            >
+              <RefreshCw
+                size={13}
+                style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }}
+              />
+              <span>
+                {isSyncing
+                  ? syncFeedback || 'Syncing to Cloud...'
+                  : `Sync to Cloud (${offlinePendingCount})`}
+              </span>
+            </button>
+          ) : syncFeedback ? (
+            <div style={styles.syncSuccessPill}>
+              <Cloud size={13} color="#10B981" />
+              <span>{syncFeedback}</span>
+            </div>
+          ) : (
+            <div
+              style={styles.onlinePill}
+              title="Internet available. Connected to Cloud Database (MongoDB Atlas)."
+            >
+              <span style={styles.onlineDot} />
+              <span>Cloud Online</span>
             </div>
           )}
 
@@ -1638,6 +1740,59 @@ const styles = {
     height: '7px',
     borderRadius: '50%',
     backgroundColor: '#D97706',
+  },
+  offlineCountBadge: {
+    backgroundColor: '#DC2626',
+    color: '#FFFFFF',
+    borderRadius: '10px',
+    padding: '1px 5px',
+    fontSize: '0.65rem',
+    fontWeight: 800,
+    marginLeft: '3px',
+  },
+  syncPendingNavBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    backgroundColor: '#EFF6FF',
+    color: '#1D4ED8',
+    border: '1px solid #BFDBFE',
+    borderRadius: '6px',
+    padding: '3px 9px',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  syncSuccessPill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    backgroundColor: '#ECFDF5',
+    color: '#065F46',
+    border: '1px solid #A7F3D0',
+    borderRadius: '6px',
+    padding: '3px 8px',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+  },
+  onlinePill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    backgroundColor: '#F0FDF4',
+    color: '#166534',
+    border: '1px solid #BBF7D0',
+    borderRadius: '6px',
+    padding: '3px 8px',
+    fontSize: '0.72rem',
+    fontWeight: 700,
+  },
+  onlineDot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    backgroundColor: '#16A34A',
   },
   doctorBadge: {
     display: 'flex',

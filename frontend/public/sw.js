@@ -1,6 +1,6 @@
-const CACHE_NAME = 'dhyey-cms-v1';
+const CACHE_NAME = 'dhyey-cms-v2';
 
-// Core static assets to cache immediately on install
+// Core static shell assets to precache immediately on install
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -27,7 +27,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: Clean up older cache versions and claim clients
+// Activate: Clean up older cache versions and claim all open clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
@@ -47,14 +47,14 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch Strategy:
-// 1. API calls (/api/*): Network-First (always freshest medical data, offline fallback JSON)
-// 2. Navigation: Network-First falling back to cached /index.html
-// 3. Static Assets: Stale-While-Revalidate (instant load + background refresh)
+// 1. API calls (/api/*): Network-First (always fresh medical data from cloud, 503 offline JSON fallback)
+// 2. Navigation: Network-First falling back to cached /index.html (guarantees full UI offline)
+// 3. Static Assets: Cache-First / Stale-While-Revalidate (instant offline load + background refresh)
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Ignore non-GET requests (e.g. POST/PUT/DELETE mutations shouldn't be handled by cache)
+  // Ignore non-GET requests (mutations handled by offlineSyncManager in application layer)
   if (request.method !== 'GET') {
     return;
   }
@@ -63,15 +63,13 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api')) {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          return response;
-        })
+        .then((response) => response)
         .catch(() => {
           return new Response(
             JSON.stringify({
               success: false,
               offline: true,
-              message: 'You are currently working offline. Reconnect to sync medical records.',
+              message: 'You are currently working offline. Reconnect to sync medical records to cloud database.',
             }),
             {
               status: 503,
@@ -101,7 +99,7 @@ self.addEventListener('fetch', (event) => {
           if (
             networkResponse &&
             networkResponse.status === 200 &&
-            networkResponse.type === 'basic'
+            (networkResponse.type === 'basic' || networkResponse.type === 'cors')
           ) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -111,7 +109,6 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // If offline and not in cache, return cached index if suitable
           return cachedResponse;
         });
 
@@ -126,4 +123,3 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
-

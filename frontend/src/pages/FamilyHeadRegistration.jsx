@@ -268,9 +268,12 @@ export const FamilyHeadRegistration = ({ onNavigateToAddMember, onNavigateToPati
         if (res.success) {
           const registeredDoneBy = payload.registrationDoneBy || formData.registrationDoneBy;
           const isFamilyMember = registeredDoneBy === 'Family Member';
+          const createdFamily = res.family || res.data || {};
+          const createdHeadName = createdFamily.headName || payload.headName || 'Family Head';
+          const createdFamilyId = createdFamily.familyId || '';
 
           setSuccessMessage(
-            `Family Head "${res.family.headName}" registered with Family ID ${res.family.familyId}!`
+            `Family Head "${createdHeadName}" registered with Family ID ${createdFamilyId}!`
           );
 
           setFormData({
@@ -290,8 +293,8 @@ export const FamilyHeadRegistration = ({ onNavigateToAddMember, onNavigateToPati
 
           if (isFamilyMember) {
             // Registration done by family member -> redirect to Add Member section with selection of that head
-            if (onNavigateToAddMember && res.family?.familyId) {
-              onNavigateToAddMember(res.family.familyId);
+            if (onNavigateToAddMember && createdFamilyId) {
+              onNavigateToAddMember(createdFamilyId);
             }
           } else {
             // Register as self -> directly redirect that patient to patient dashboard for case entry

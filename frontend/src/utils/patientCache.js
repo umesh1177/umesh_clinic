@@ -1,15 +1,21 @@
 import { patientAPI } from '../services/api';
+import { getStoredPatients, saveStoredPatients } from './offlineSyncManager';
 
-// Global in-memory cache of clinic patients for instant 0ms search
-export let patientCache = [];
+// Initialize global in-memory cache from persistent device memory
+export let patientCache = getStoredPatients();
 let isPreloading = false;
 
 if (typeof window !== 'undefined') {
   window.patientCache = patientCache;
+
+  // Reload patient cache when background sync completes
+  window.addEventListener('dhyey_offline_sync_finished', () => {
+    preloadPatients(true).catch(() => {});
+  });
 }
 
-export const preloadPatients = async () => {
-  if (patientCache.length > 0) {
+export const preloadPatients = async (force = false) => {
+  if (!force && patientCache.length > 0) {
     return patientCache;
   }
   if (isPreloading) {
@@ -21,17 +27,23 @@ export const preloadPatients = async () => {
     const res = await patientAPI.getAll('');
     if (res?.success && Array.isArray(res.data)) {
       patientCache = res.data;
+      saveStoredPatients(patientCache);
       if (typeof window !== 'undefined') {
         window.patientCache = patientCache;
       }
       return patientCache;
     }
   } catch (err) {
-    console.warn('Could not preload patient cache:', err);
+    console.warn('[patientCache] Could not fetch from cloud, using device memory:', err);
+    // Fall back to device memory
+    patientCache = getStoredPatients();
+    if (typeof window !== 'undefined') {
+      window.patientCache = patientCache;
+    }
   } finally {
     isPreloading = false;
   }
-  return [];
+  return patientCache;
 };
 
 export const updateCachedPatient = (patient) => {
@@ -43,6 +55,10 @@ export const updateCachedPatient = (patient) => {
   } else {
     patientCache.unshift(patient);
   }
+
+  // Persist updated patient list to device memory
+  saveStoredPatients(patientCache);
+
   if (typeof window !== 'undefined') {
     window.patientCache = patientCache;
   }
@@ -66,4 +82,3 @@ export const searchPatientsInMemory = (rawQuery) => {
     return tokens.every((token) => combined.includes(token));
   });
 };
-

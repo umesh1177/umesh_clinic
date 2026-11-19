@@ -8,8 +8,8 @@ try {
   // Ignore in environments where setServers is restricted
 }
 
-// Ensure proper database name (clinic_management_db) is always targeted
-const sanitizeMongoUri = (raw) => {
+// Automatically sanitize URI: encode any literal '@' in password and target database
+export const sanitizeMongoUri = (raw) => {
   if (!raw || !raw.trim()) {
     throw new Error(
       'MONGODB_URI is not defined in environment variables. Please configure MONGODB_URI in your .env file or environment.'
@@ -17,15 +17,27 @@ const sanitizeMongoUri = (raw) => {
   }
   let uri = raw.trim();
 
+  // If password contains an unescaped '@' (producing multiple '@' characters in URI)
+  const atCount = (uri.match(/@/g) || []).length;
+  if (atCount > 1) {
+    const lastAtIndex = uri.lastIndexOf('@');
+    const prefix = uri.substring(0, lastAtIndex);
+    const suffix = uri.substring(lastAtIndex);
+    const schemeEnd = prefix.indexOf('://') + 3;
+    const creds = prefix.substring(schemeEnd);
+    const colonIndex = creds.indexOf(':');
+    if (colonIndex !== -1) {
+      const user = creds.substring(0, colonIndex);
+      const rawPassword = creds.substring(colonIndex + 1);
+      const encodedPassword = rawPassword.replace(/@/g, '%40');
+      uri = `${prefix.substring(0, schemeEnd)}${user}:${encodedPassword}${suffix}`;
+    }
+  }
+
   // If URI ends with mongodb.net/ or has no db name before query string
   if (/mongodb\.net\/?(\?.*)?$/i.test(uri)) {
     uri = uri.replace(/mongodb\.net\/?(\?.*)?$/i, (match, query) => {
-      return `mongodb.net/clinic_management_db${query || '?retryWrites=true&w=majority'}`;
-    });
-  } else if (/mongodb\.net\/test(\?.*)?$/i.test(uri)) {
-    // If set to /test, route to the official clinic_management_db
-    uri = uri.replace(/mongodb\.net\/test(\?.*)?$/i, (match, query) => {
-      return `mongodb.net/clinic_management_db${query || '?retryWrites=true&w=majority'}`;
+      return `mongodb.net/dhyey_clinic${query || '?retryWrites=true&w=majority'}`;
     });
   }
 
@@ -72,4 +84,3 @@ const connectDB = async () => {
 };
 
 export default connectDB;
-

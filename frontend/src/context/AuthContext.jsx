@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authAPI } from '../services/api';
+import { getDoctorOfflineSession, isOnline } from '../utils/offlineSyncManager';
 
 const AuthContext = createContext(null);
 
@@ -7,18 +8,28 @@ export const AuthProvider = ({ children }) => {
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check active session on initial load (strictly in-memory, no localStorage)
+  // Check active session on initial load (falls back to device memory ONLY if offline)
   const checkAuth = async () => {
     try {
       setLoading(true);
       const res = await authAPI.getProfile();
-      if (res.success && res.doctor) {
+      if (res && res.success && res.doctor) {
         setDoctor(res.doctor);
+      } else {
+        if (!isOnline()) {
+          const offlineDoc = getDoctorOfflineSession();
+          setDoctor(offlineDoc || null);
+        } else {
+          setDoctor(null);
+        }
+      }
+    } catch {
+      if (!isOnline()) {
+        const offlineDoc = getDoctorOfflineSession();
+        setDoctor(offlineDoc || null);
       } else {
         setDoctor(null);
       }
-    } catch {
-      setDoctor(null);
     } finally {
       setLoading(false);
     }

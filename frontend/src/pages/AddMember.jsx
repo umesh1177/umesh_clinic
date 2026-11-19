@@ -209,16 +209,17 @@ export const AddMember = ({ initialFamilyId, onProceedToCaseEntry, onNavigateToF
       };
 
       const res = await patientAPI.addMember(payload);
+      const member = res.patient || res.data;
 
-      if (res.success && res.patient) {
+      if (res.success && member) {
         setSuccessMessage(
-          `Member "${res.patient.name}" (${res.patient.patientId}) registered successfully! Redirecting to Case Entry...`
+          `Member "${member.name || payload.name}" (${member.patientId || ''}) registered successfully! Redirecting to Case Entry...`
         );
 
         // Immediate redirect to Patient Record (F3) with this newly registered member
         setTimeout(() => {
           if (onProceedToCaseEntry) {
-            onProceedToCaseEntry(res.patient, res.family);
+            onProceedToCaseEntry(member, res.family);
           }
         }, 500);
       }
